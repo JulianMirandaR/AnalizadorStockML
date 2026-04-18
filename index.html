@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Stock - Sistema vs MercadoLibre</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="./estilos.css">
+    
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- SweetAlert for nice alerts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <div class="app-background">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <main class="dashboard">
+        <header class="header">
+            <div class="brand">
+                <i class="fa-solid fa-layer-group"></i>
+                <h1>Reportes de Stock</h1>
+            </div>
+            <p>Auditoría y conciliación inteligente entre tu Sistema y Mercado Libre</p>
+        </header>
+
+        <section class="instructions-section">
+            <div class="instructions-card">
+                <h2><i class="fa-solid fa-cloud-arrow-down"></i> ¿Cómo descargar el archivo de Mercado Libre?</h2>
+                <ul class="steps-list">
+                    <li><span class="step-num">1</span> Ve a <strong>Condiciones Generales</strong> y selecciona <strong>Descarga la planilla de excel</strong>.</li>
+                    <li><span class="step-num">2</span> En las opciones de columnas a exportar, elige <strong>solo</strong>: <ul><li><i class="fa-solid fa-check"></i> SKU</li><li><i class="fa-solid fa-check"></i> Stock en tu deposito</li></ul></li>
+                    <li><span class="step-num">3</span> En los filtros de la planilla, selecciona la Categoría: <strong>Cubiertas para automotores</strong>.</li>
+                    <li><span class="step-num">4</span> Cambia el filtro de Estado a: <strong>Activas</strong>.</li>
+                    <li><span class="step-num">5</span> ¡Descarga el archivo y súbelo aquí abajo!</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="upload-section">
+            <div class="upload-card" id="drop-zone-ml">
+                <div class="card-icon">
+                    <img src="https://logodownload.org/wp-content/uploads/2018/10/mercado-libre-logo.png" alt="Mercado Libre Logo" class="ml-logo">
+                </div>
+                <h3>Archivo Mercado Libre</h3>
+                <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                <input type="file" id="file-ml" accept=".xlsx, .xls, .csv" hidden>
+                <div class="file-status" id="status-ml">Sin archivo</div>
+            </div>
+
+            <div class="upload-card" id="drop-zone-sys">
+                <div class="card-icon">
+                    <i class="fa-solid fa-server"></i>
+                </div>
+                <h3>Archivo del Sistema</h3>
+                <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                <input type="file" id="file-sys" accept=".xlsx, .xls, .csv" hidden>
+                <div class="file-status" id="status-sys">Sin archivo</div>
+            </div>
+        </section>
+
+        <section class="actions-section">
+            <button id="btn-process" class="btn-primary" disabled>
+                <i class="fa-solid fa-bolt"></i>
+                Analizar y Comparar Stock
+            </button>
+        </section>
+
+        <section class="results-section hidden" id="results-panel">
+            <div class="results-header">
+                <h2><i class="fa-solid fa-chart-pie"></i> Resultados del Análisis</h2>
+                <button id="btn-download" class="btn-secondary">
+                    <i class="fa-solid fa-download"></i>
+                    Descargar Nuevo Excel
+                </button>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-ml-mayor">0</span>
+                        <span class="stat-label">ML mayor a Sistema (Peligro)</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-plus-circle text-success"></i>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-missing-ml">0</span>
+                        <span class="stat-label">A publicar en ML</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-circle-exclamation text-warning"></i>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-warning">0</span>
+                        <span class="stat-label">Diferencias (<=2 unidades)</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-boxes-stacked text-info"></i>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-other">0</span>
+                        <span class="stat-label">Otras diferencias</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Stock ML</th>
+                            <th>Stock Sistema</th>
+                            <th>Motivo / Acción Sugerida</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body">
+                        <!-- Rows will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="./app.js"></script>
+</body>
+</html>
