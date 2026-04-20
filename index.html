@@ -27,13 +27,19 @@
         <div class="blob blob-2"></div>
     </div>
 
+    <nav class="tabs">
+        <button class="tab-btn active" data-tab="stock">Auditoría de Stock</button>
+        <button class="tab-btn" data-tab="rentabilidad">Análisis de Rentabilidad</button>
+    </nav>
+
     <main class="dashboard">
+        <div id="tab-stock" class="tab-content active">
         <header class="header">
             <div class="brand">
                 <i class="fa-solid fa-layer-group"></i>
                 <h1>Reportes de Stock</h1>
             </div>
-            <p>Auditoría y conciliación inteligente entre tu Sistema y Mercado Libre</p>
+            <p>Auditoría entre GNik y Mercado Libre</p>
         </header>
 
         <section class="instructions-section">
@@ -41,7 +47,7 @@
                 <h2><i class="fa-solid fa-cloud-arrow-down"></i> ¿Cómo descargar el archivo de Mercado Libre?</h2>
                 <ul class="steps-list">
                     <li><span class="step-num">1</span> Ve a <strong>Condiciones Generales</strong> y selecciona <strong>Descarga la planilla de excel</strong>.</li>
-                    <li><span class="step-num">2</span> En las opciones de columnas a exportar, elige <strong>solo</strong>: <ul><li><i class="fa-solid fa-check"></i> SKU</li><li><i class="fa-solid fa-check"></i> Stock en tu deposito</li></ul></li>
+                    <li><span class="step-num">2</span> En las opciones de columnas a exportar, elige <strong>solo</strong>: <ul><li><i class="fa-solid fa-check"></i> SKU<i class="fa-solid fa-check"></i> Stock en tu deposito</li></ul></li>
                     <li><span class="step-num">3</span> En los filtros de la planilla, selecciona la Categoría: <strong>Cubiertas para automotores</strong>.</li>
                     <li><span class="step-num">4</span> Cambia el filtro de Estado a: <strong>Activas</strong>.</li>
                     <li><span class="step-num">5</span> ¡Descarga el archivo y súbelo aquí abajo!</li>
@@ -73,7 +79,6 @@
 
         <section class="actions-section">
             <button id="btn-process" class="btn-primary" disabled>
-                <i class="fa-solid fa-bolt"></i>
                 Analizar y Comparar Stock
             </button>
         </section>
@@ -134,6 +139,91 @@
                 </table>
             </div>
         </section>
+        </div>
+
+        <div id="tab-rentabilidad" class="tab-content">
+            <header class="header">
+                <div class="brand">
+                    <i class="fa-solid fa-money-bill-trend-up"></i>
+                    <h1>Análisis de Rentabilidad</h1>
+                </div>
+                <p>Compara listas de precios contra ventas en Mercado Libre</p>
+            </header>
+            
+            <section class="upload-section">
+                <div class="upload-card" id="drop-zone-guerrini">
+                    <div class="card-icon">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                    <h3>Lista de Precios Guerrini</h3>
+                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                    <input type="file" id="file-guerrini" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="file-status" id="status-guerrini">Sin archivo</div>
+                </div>
+
+                <div class="upload-card" id="drop-zone-ventas">
+                    <div class="card-icon">
+                        <i class="fa-solid fa-cash-register"></i>
+                    </div>
+                    <h3>Ventas Mercado Libre</h3>
+                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                    <input type="file" id="file-ventas" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="file-status" id="status-ventas">Sin archivo</div>
+                </div>
+            </section>
+
+            <section class="actions-section">
+                <button id="btn-process-rentabilidad" class="btn-primary" disabled>
+                    <i class="fa-solid fa-bolt"></i> Analizar Rentabilidad
+                </button>
+            </section>
+
+            <section class="results-section hidden" id="results-panel-rentabilidad">
+                <div class="results-header">
+                    <h2><i class="fa-solid fa-chart-pie"></i> Resultados del Análisis de Rentabilidad</h2>
+                    <button id="btn-download-rentabilidad" class="btn-secondary">
+                        <i class="fa-solid fa-download"></i>
+                        Descargar Reporte
+                    </button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fa-solid fa-arrow-trend-up text-success"></i>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-ganancia">0</span>
+                            <span class="stat-label">Ventas con Ganancia</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-arrow-trend-down text-danger"></i>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-perdida">0</span>
+                            <span class="stat-label">Ventas con Pérdida</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="results-table-rentabilidad">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>SKU</th>
+                                <th>Detalle del Producto</th>
+                                <th>Costo Unitario</th>
+                                <th>Precio Venta</th>
+                                <th>Cant. Vendida</th>
+                                <th>Resultado Total</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body-rentabilidad">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     </main>
 
     <script src="./app.js"></script>

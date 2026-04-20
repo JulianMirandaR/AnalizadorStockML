@@ -24,8 +24,21 @@ let dataMl = null;
 let dataSys = null;
 let finalResults = [];
 
+// NEW TABS LOGIC
+const tabBtns = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    });
+});
+
 // Drag and drop handlers
-function setupDropZone(dropZone, fileInput, statusElement) {
+function setupDropZone(dropZone, fileInput, statusElement, type) {
     dropZone.addEventListener('click', () => fileInput.click());
     
     dropZone.addEventListener('dragover', (e) => {
@@ -43,17 +56,26 @@ function setupDropZone(dropZone, fileInput, statusElement) {
         
         if (e.dataTransfer.files.length) {
             fileInput.files = e.dataTransfer.files;
-            handleFileSelect(fileInput, statusElement, dropZone.id === 'drop-zone-ml' ? 'ml' : 'sys');
+            if (type === 'ml' || type === 'sys') {
+                handleFileSelect(fileInput, statusElement, type);
+            } else {
+                handleFileSelectRentabilidad(fileInput, statusElement, type);
+            }
         }
     });
 
     fileInput.addEventListener('change', () => {
-        handleFileSelect(fileInput, statusElement, dropZone.id === 'drop-zone-ml' ? 'ml' : 'sys');
+        if (fileInput.files.length === 0) return;
+        if (type === 'ml' || type === 'sys') {
+            handleFileSelect(fileInput, statusElement, type);
+        } else {
+            handleFileSelectRentabilidad(fileInput, statusElement, type);
+        }
     });
 }
 
-setupDropZone(dropZoneMl, fileMl, statusMl);
-setupDropZone(dropZoneSys, fileSys, statusSys);
+setupDropZone(dropZoneMl, fileMl, statusMl, 'ml');
+setupDropZone(dropZoneSys, fileSys, statusSys, 'sys');
 
 function handleFileSelect(input, statusElement, type) {
     if (input.files.length === 0) return;
@@ -317,4 +339,293 @@ btnDownload.addEventListener('click', () => {
     // Save file
     const dateStr = new Date().toISOString().split('T')[0];
     XLSX.writeFile(wb, `Conciliacion_Stock_ML_${dateStr}.xlsx`);
+});
+
+// --- NEW RENTABILIDAD LOGIC ---
+const fileGuerrini = document.getElementById('file-guerrini');
+const fileVentas = document.getElementById('file-ventas');
+const statusGuerrini = document.getElementById('status-guerrini');
+const statusVentas = document.getElementById('status-ventas');
+const btnProcessRentabilidad = document.getElementById('btn-process-rentabilidad');
+const resultsPanelRentabilidad = document.getElementById('results-panel-rentabilidad');
+const resultsBodyRentabilidad = document.getElementById('results-body-rentabilidad');
+const btnDownloadRentabilidad = document.getElementById('btn-download-rentabilidad');
+
+const statGanancia = document.getElementById('stat-ganancia');
+const statPerdida = document.getElementById('stat-perdida');
+
+const dropZoneGuerrini = document.getElementById('drop-zone-guerrini');
+const dropZoneVentas = document.getElementById('drop-zone-ventas');
+
+let dataGuerrini = {};
+let dataVentas = [];
+let finalResultsRentabilidad = [];
+
+setupDropZone(dropZoneGuerrini, fileGuerrini, statusGuerrini, 'guerrini');
+setupDropZone(dropZoneVentas, fileVentas, statusVentas, 'ventas');
+
+function handleFileSelectRentabilidad(input, statusElement, type) {
+    if (input.files.length === 0) return;
+    
+    const file = input.files[0];
+    statusElement.textContent = file.name;
+    statusElement.classList.add('uploaded');
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            if (type === 'guerrini') {
+                dataGuerrini = {}; // Reset
+                // Parse all sheets in Guerrini list
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                    parseGuerrini(json);
+                });
+            } else if (type === 'ventas') {
+                // Ventas ML report typically uses the first active sheet
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                dataVentas = parseVentas(json);
+            }
+            
+            if (Object.keys(dataGuerrini).length > 0 && dataVentas.length > 0) {
+                btnProcessRentabilidad.disabled = false;
+            }
+        } catch (error) {
+            Swal.fire('Error', 'No se pudo leer el archivo Excel.', 'error');
+            console.error(error);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseGuerrini(rows) {
+    // Col A (0) = SKU, Col H (7) = Precio Base
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length < 8) continue;
+        
+        let sku = row[0];
+        let price = row[7];
+        
+        if (sku !== undefined && sku !== null && sku !== '') {
+            sku = sku.toString().replace(/^['"]+/, '').replace(/['"]+$/, '').trim().toUpperCase();
+            // Handle possibility of string formatted price (e.g., "$ 1,000.00")
+            if(typeof price === 'string') {
+               price = parseFloat(price.replace(/[^0-9,-]+/g, '').replace(',', '.'));
+            } else {
+               price = parseFloat(price);
+            }
+            
+            if (!isNaN(price) && price > 0) {
+                // Apple discounts: 35%, 25%, 8% => price * 0.65 * 0.75 * 0.92 = price * 0.4485
+                let finalCost = price * 0.4485;
+                dataGuerrini[sku] = finalCost;
+            }
+        }
+    }
+}
+
+function parseVentas(rows) {
+    const list = [];
+    // Start reading from row 6 (index 5)
+    // Col V (21) = SKU, Col S (18) = Sold Price, Col G (6) = Quantity
+    for (let i = 5; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length < 25) continue;
+        
+        let dateRaw = row[1];    // B
+        let paramSku = row[21]; // V
+        let soldPrice = row[18]; // S
+        let quantity = row[6];   // G
+        let title = row[24];     // Y
+        
+        if (paramSku !== undefined && paramSku !== null && paramSku !== '') {
+            let sku = paramSku.toString().replace(/^['"]+/, '').replace(/['"]+$/, '').trim().toUpperCase();
+            
+            if(typeof soldPrice === 'string') {
+               soldPrice = parseFloat(soldPrice.replace(/[^0-9,-]+/g, '').replace(',', '.'));
+            } else {
+               soldPrice = parseFloat(soldPrice);
+            }
+            
+            if(typeof quantity === 'string') {
+               quantity = parseFloat(quantity.replace(/[^0-9,-]+/g, '').replace(',', '.'));
+            } else {
+               quantity = parseFloat(quantity);
+            }
+            
+            // Prevent division by zero
+            if (isNaN(quantity) || quantity <= 0) {
+               quantity = 1;
+            }
+            
+            if (!isNaN(soldPrice)) {
+                // Divide the total sold price by the quantity to get the unit sold price
+                let unitSoldPrice = soldPrice / quantity;
+                
+                // Ignorar ventas con montos muy bajos, suelen ser devoluciones
+                if (unitSoldPrice > 1000) {
+                    list.push({ 
+                        rowIndex: i, 
+                        dateRaw: dateRaw, 
+                        sku: sku, 
+                        title: title || 'Sin detalle', 
+                        soldPrice: unitSoldPrice, 
+                        quantity: quantity 
+                    });
+                }
+            }
+        }
+    }
+    return list;
+}
+
+btnProcessRentabilidad.addEventListener('click', () => {
+    btnProcessRentabilidad.disabled = true;
+    btnProcessRentabilidad.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+    
+    setTimeout(() => {
+        analizarRentabilidad();
+        renderTableRentabilidad();
+        
+        resultsPanelRentabilidad.classList.remove('hidden');
+        
+        btnProcessRentabilidad.innerHTML = '<i class="fa-solid fa-bolt"></i> Analizar Rentabilidad';
+        btnProcessRentabilidad.disabled = false;
+        
+        Swal.fire({
+            title: '¡Análisis de Rentabilidad Completado!',
+            text: `Se analizaron ${finalResultsRentabilidad.length} ventas.`,
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+        });
+    }, 500); 
+});
+
+function formatter(val) {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(val);
+}
+
+function analizarRentabilidad() {
+    finalResultsRentabilidad = [];
+    let gananciaCount = 0;
+    let perdidaCount = 0;
+
+    dataVentas.forEach(venta => {
+        // Find if base SKU is present (or support Kit variations just in case, but usually exact SKU match is fine for sales)
+        let cost = dataGuerrini[venta.sku];
+        
+        // Let's also verify kit parsing like we did for stock, just in case they sell kits.
+        const kitMatch = venta.sku.match(/^KITX(\d+)-(.*)/);
+        if (kitMatch && cost === undefined) {
+            let multiplier = parseInt(kitMatch[1], 10);
+            let realSku = kitMatch[2];
+            if(dataGuerrini[realSku] !== undefined) {
+               cost = dataGuerrini[realSku] * multiplier;
+            }
+        }
+
+        if (cost !== undefined) {
+            const unitProfit = venta.soldPrice - cost;
+            const totalDiferencia = unitProfit * venta.quantity;
+            
+            const estado = totalDiferencia > 0 ? 'Ganancia' : 'Pérdida';
+            const badgeClass = totalDiferencia > 0 ? 'bg-success' : 'bg-danger';
+            
+            if (totalDiferencia > 0) gananciaCount++;
+            else perdidaCount++;
+
+            finalResultsRentabilidad.push({
+                OriginalIndex: venta.rowIndex,
+                Fecha: venta.dateRaw,
+                SKU: venta.sku,
+                Title: venta.title,
+                CostoFinal: cost,
+                PrecioVendido: venta.soldPrice,
+                CantidadVendida: venta.quantity,
+                Resultado: totalDiferencia,
+                Estado: estado,
+                _badgeClass: badgeClass
+            });
+        }
+    });
+
+    statGanancia.textContent = gananciaCount;
+    statPerdida.textContent = perdidaCount;
+}
+
+function renderTableRentabilidad() {
+    resultsBodyRentabilidad.innerHTML = '';
+    
+    // El reporte de ML originalmente suele venir ordenado por fecha de forma descendente.
+    // Usamos el OriginalIndex para garantizar un orden cronológico exacto al del Excel madre,
+    // garantizando que las fechas queden correlativas en orden.
+    finalResultsRentabilidad.sort((a, b) => a.OriginalIndex - b.OriginalIndex);
+    
+    finalResultsRentabilidad.forEach(item => {
+        const tr = document.createElement('tr');
+        
+        let displayDate = item.Fecha ? item.Fecha.toString() : '';
+        // Si Excel envió la fecha como código serial (muy frecuente)
+        if (typeof item.Fecha === 'number') {
+            displayDate = new Date((item.Fecha - (25567 + 2)) * 86400 * 1000).toLocaleDateString('es-AR');
+        } else if (displayDate.length > 10 && displayDate.includes('T')) {
+            displayDate = displayDate.split('T')[0]; // Para fechas ISO reducidas
+        } else if (displayDate.length > 15) {
+            displayDate = displayDate.substring(0, 10); // Reducirlo para no ocupar mucho
+        }
+        
+        tr.innerHTML = `
+            <td><span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">${displayDate}</span></td>
+            <td><strong>${item.SKU}</strong></td>
+            <td><span style="font-size: 0.85rem; color: var(--text-secondary);">${item.Title}</span></td>
+            <td>${formatter(item.CostoFinal)}</td>
+            <td>${formatter(item.PrecioVendido)}</td>
+            <td><strong>x${item.CantidadVendida}</strong></td>
+            <td class="${item.Resultado > 0 ? 'text-success' : 'text-danger'}"><strong>${item.Resultado > 0 ? '+' : ''}${formatter(item.Resultado)}</strong></td>
+            <td><span class="status-badge ${item._badgeClass}">${item.Estado}</span></td>
+        `;
+        
+        resultsBodyRentabilidad.appendChild(tr);
+    });
+}
+
+btnDownloadRentabilidad.addEventListener('click', () => {
+    const excelData = finalResultsRentabilidad.map(item => {
+        return {
+            'Fecha Venta': item.Fecha,
+            'SKU': item.SKU,
+            'Detalle del Producto': item.Title,
+            'Costo Guerrini (Por Artículo Publicado) ($)': item.CostoFinal,
+            'Precio de Venta ML (Por Artículo Publicado) ($)': item.PrecioVendido,
+            'Unidades de este SKU Vendidas': item.CantidadVendida,
+            'Ganancia/Pérdida Total del Renglón ($)': item.Resultado,
+            'Estado': item.Estado
+        };
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    const wscols = [
+        {wch: 15}, // Fecha
+        {wch: 25}, // SKU
+        {wch: 45}, // Detalle
+        {wch: 20}, // Costo
+        {wch: 20}, // Venta
+        {wch: 20}, // Cantidad
+        {wch: 25}, // Resultado
+        {wch: 15}  // Estado
+    ];
+    ws['!cols'] = wscols;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rentabilidad");
+    
+    const dateStr = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Analisis_Rentabilidad_${dateStr}.xlsx`);
 });
