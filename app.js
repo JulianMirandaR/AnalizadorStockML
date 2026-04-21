@@ -211,11 +211,16 @@ function analizarDatos() {
         let skuForSystem = rawSku;
         let multiplier = 1;
         
-        // Detectar si es un kit (ej: KITX2-32277)
-        const kitMatch = rawSku.match(/^KITX(\d+)-(.*)/);
-        if (kitMatch) {
-            multiplier = parseInt(kitMatch[1], 10);
-            skuForSystem = kitMatch[2]; // el SKU real en el sistema
+        // Detectar si es un kit (ej: KITX2-32277 o 32277X2)
+        const kitMatchPrefix = rawSku.match(/^KITX(\d+)-(.*)/);
+        const kitMatchSuffix = rawSku.match(/^(.*)X(\d+)$/);
+        
+        if (kitMatchPrefix) {
+            multiplier = parseInt(kitMatchPrefix[1], 10);
+            skuForSystem = kitMatchPrefix[2]; // el SKU real en el sistema
+        } else if (kitMatchSuffix) {
+            multiplier = parseInt(kitMatchSuffix[2], 10);
+            skuForSystem = kitMatchSuffix[1]; // el SKU real base
         }
         
         const mlStockEq = originalMlStock * multiplier;
@@ -521,12 +526,22 @@ function analizarRentabilidad() {
         let cost = dataGuerrini[venta.sku];
         
         // Let's also verify kit parsing like we did for stock, just in case they sell kits.
-        const kitMatch = venta.sku.match(/^KITX(\d+)-(.*)/);
-        if (kitMatch && cost === undefined) {
-            let multiplier = parseInt(kitMatch[1], 10);
-            let realSku = kitMatch[2];
-            if(dataGuerrini[realSku] !== undefined) {
-               cost = dataGuerrini[realSku] * multiplier;
+        const kitMatchPrefix = venta.sku.match(/^KITX(\d+)-(.*)/);
+        const kitMatchSuffix = venta.sku.match(/^(.*)X(\d+)$/);
+        
+        if (cost === undefined) {
+            if (kitMatchPrefix) {
+                let multiplier = parseInt(kitMatchPrefix[1], 10);
+                let realSku = kitMatchPrefix[2];
+                if(dataGuerrini[realSku] !== undefined) {
+                   cost = dataGuerrini[realSku] * multiplier;
+                }
+            } else if (kitMatchSuffix) {
+                let multiplier = parseInt(kitMatchSuffix[2], 10);
+                let realSku = kitMatchSuffix[1];
+                if(dataGuerrini[realSku] !== undefined) {
+                   cost = dataGuerrini[realSku] * multiplier;
+                }
             }
         }
 
