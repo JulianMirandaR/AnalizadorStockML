@@ -28,7 +28,8 @@
     </div>
 
     <nav class="tabs">
-        <button class="tab-btn active" data-tab="stock">Auditoría de Stock</button>
+        <button class="tab-btn active" data-tab="stock">Auditoría Margaría</button>
+        <button class="tab-btn" data-tab="nuevos">Auditoría Nuevos</button>
         <button class="tab-btn" data-tab="rentabilidad">Análisis de Rentabilidad</button>
     </nav>
 
@@ -37,9 +38,9 @@
         <header class="header">
             <div class="brand">
                 <i class="fa-solid fa-layer-group"></i>
-                <h1>Reportes de Stock</h1>
+                <h1>Reportes de Stock - Margaría</h1>
             </div>
-            <p>Auditoría entre GNik y Mercado Libre</p>
+            <p>Auditoría entre GNik y Mercado Libre (Margaría Neumáticos)</p>
         </header>
 
         <section class="instructions-section">
@@ -139,6 +140,123 @@
                 </table>
             </div>
         </section>
+        </div>
+
+        <div id="tab-nuevos" class="tab-content">
+            <header class="header">
+                <div class="brand">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <h1>Reportes de Stock - Nuevos Neumáticos</h1>
+                </div>
+                <p>Auditoría entre GNik (2 archivos) y Mercado Libre</p>
+            </header>
+
+            <section class="instructions-section">
+                <div class="instructions-card">
+                    <h2><i class="fa-solid fa-cloud-arrow-down"></i> ¿Cómo descargar el archivo de Mercado Libre?</h2>
+                    <ul class="steps-list">
+                        <li><span class="step-num">1</span> Ve a <strong>Condiciones Generales</strong> y selecciona <strong>Descarga la planilla de excel</strong>.</li>
+                        <li><span class="step-num">2</span> Elige <strong>solo</strong>: <ul><li><i class="fa-solid fa-check"></i> SKU<i class="fa-solid fa-check"></i> Stock en tu deposito</li></ul></li>
+                        <li><span class="step-num">3</span> Categoría: <strong>Cubiertas para automotores</strong>.</li>
+                        <li><span class="step-num">4</span> Estado: <strong>Activas</strong>.</li>
+                        <li><span class="step-num">5</span> ¡Sube el archivo de ML y los 2 de GNik!</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="upload-section">
+                <div class="upload-card" id="drop-zone-ml-nuevos">
+                    <div class="card-icon">
+                        <img src="https://logodownload.org/wp-content/uploads/2018/10/mercado-libre-logo.png" alt="Mercado Libre Logo" class="ml-logo">
+                    </div>
+                    <h3>Archivo Mercado Libre</h3>
+                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                    <input type="file" id="file-ml-nuevos" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="file-status" id="status-ml-nuevos">Sin archivo</div>
+                </div>
+
+                <div class="upload-card" id="drop-zone-sys1-nuevos">
+                    <div class="card-icon">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <h3>Archivo GNik 1</h3>
+                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                    <input type="file" id="file-sys1-nuevos" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="file-status" id="status-sys1-nuevos">Sin archivo</div>
+                </div>
+
+                <div class="upload-card" id="drop-zone-sys2-nuevos">
+                    <div class="card-icon">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <h3>Archivo GNik 2</h3>
+                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
+                    <input type="file" id="file-sys2-nuevos" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="file-status" id="status-sys2-nuevos">Sin archivo</div>
+                </div>
+            </section>
+
+            <section class="actions-section">
+                <button id="btn-process-nuevos" class="btn-primary" disabled>
+                    Analizar y Comparar Stock
+                </button>
+            </section>
+
+            <section class="results-section hidden" id="results-panel-nuevos">
+                <div class="results-header">
+                    <h2><i class="fa-solid fa-chart-pie"></i> Resultados del Análisis</h2>
+                    <button id="btn-download-nuevos" class="btn-secondary">
+                        <i class="fa-solid fa-download"></i>
+                        Descargar Nuevo Excel
+                    </button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-ml-mayor-nuevos">0</span>
+                            <span class="stat-label">ML mayor a Sistema</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-plus-circle text-success"></i>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-missing-ml-nuevos">0</span>
+                            <span class="stat-label">A publicar en ML</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-circle-exclamation text-warning"></i>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-warning-nuevos">0</span>
+                            <span class="stat-label">Diferencias (<=2)</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fa-solid fa-boxes-stacked text-info"></i>
+                        <div class="stat-info">
+                            <span class="stat-value" id="stat-other-nuevos">0</span>
+                            <span class="stat-label">Otras diferencias</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="results-table-nuevos">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Stock ML</th>
+                                <th>Stock Sistema (Total)</th>
+                                <th>Motivo / Acción Sugerida</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body-nuevos">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
 
         <div id="tab-rentabilidad" class="tab-content">

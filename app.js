@@ -346,6 +346,284 @@ btnDownload.addEventListener('click', () => {
     XLSX.writeFile(wb, `Conciliacion_Stock_ML_${dateStr}.xlsx`);
 });
 
+// --- NUEVOS NEUMATICOS LOGIC ---
+const fileMlNuevos = document.getElementById('file-ml-nuevos');
+const fileSys1Nuevos = document.getElementById('file-sys1-nuevos');
+const fileSys2Nuevos = document.getElementById('file-sys2-nuevos');
+const statusMlNuevos = document.getElementById('status-ml-nuevos');
+const statusSys1Nuevos = document.getElementById('status-sys1-nuevos');
+const statusSys2Nuevos = document.getElementById('status-sys2-nuevos');
+const btnProcessNuevos = document.getElementById('btn-process-nuevos');
+const resultsPanelNuevos = document.getElementById('results-panel-nuevos');
+const resultsBodyNuevos = document.getElementById('results-body-nuevos');
+const btnDownloadNuevos = document.getElementById('btn-download-nuevos');
+
+const dropZoneMlNuevos = document.getElementById('drop-zone-ml-nuevos');
+const dropZoneSys1Nuevos = document.getElementById('drop-zone-sys1-nuevos');
+const dropZoneSys2Nuevos = document.getElementById('drop-zone-sys2-nuevos');
+
+const statsNuevos = {
+    mlMayor: document.getElementById('stat-ml-mayor-nuevos'),
+    missingMl: document.getElementById('stat-missing-ml-nuevos'),
+    warning: document.getElementById('stat-warning-nuevos'),
+    other: document.getElementById('stat-other-nuevos')
+};
+
+let dataMlNuevos = null;
+let dataSys1Nuevos = null;
+let dataSys2Nuevos = null;
+let finalResultsNuevos = [];
+
+function setupDropZoneNuevos(dropZone, fileInput, statusElement, type) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelectNuevos(fileInput, statusElement, type);
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length === 0) return;
+        handleFileSelectNuevos(fileInput, statusElement, type);
+    });
+}
+
+setupDropZoneNuevos(dropZoneMlNuevos, fileMlNuevos, statusMlNuevos, 'ml');
+setupDropZoneNuevos(dropZoneSys1Nuevos, fileSys1Nuevos, statusSys1Nuevos, 'sys1');
+setupDropZoneNuevos(dropZoneSys2Nuevos, fileSys2Nuevos, statusSys2Nuevos, 'sys2');
+
+function handleFileSelectNuevos(input, statusElement, type) {
+    if (input.files.length === 0) return;
+    const file = input.files[0];
+    statusElement.textContent = file.name;
+    statusElement.classList.add('uploaded');
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            let targetSheetName = workbook.SheetNames[0];
+            if (type === 'ml') {
+                if (workbook.SheetNames.includes('Publicaciones')) {
+                    targetSheetName = 'Publicaciones';
+                } else if (workbook.SheetNames.length > 2) {
+                    targetSheetName = workbook.SheetNames[2];
+                } else if (workbook.SheetNames.length > 1) {
+                    targetSheetName = workbook.SheetNames[1];
+                }
+            }
+            
+            const worksheet = workbook.Sheets[targetSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+            
+            if (type === 'ml') {
+                dataMlNuevos = parseMl(json);
+            } else if (type === 'sys1') {
+                dataSys1Nuevos = parseSys(json);
+            } else if (type === 'sys2') {
+                dataSys2Nuevos = parseSys(json);
+            }
+            
+            checkReadyNuevos();
+        } catch (error) {
+            Swal.fire('Error', 'No se pudo leer el archivo Excel.', 'error');
+            console.error(error);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function checkReadyNuevos() {
+    if (dataMlNuevos && dataSys1Nuevos && dataSys2Nuevos) {
+        btnProcessNuevos.disabled = false;
+    }
+}
+
+btnProcessNuevos.addEventListener('click', () => {
+    btnProcessNuevos.disabled = true;
+    btnProcessNuevos.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+    
+    setTimeout(() => {
+        analizarDatosNuevos();
+        renderTableNuevos();
+        
+        resultsPanelNuevos.classList.remove('hidden');
+        
+        btnProcessNuevos.innerHTML = '<i class="fa-solid fa-bolt"></i> Analizar y Comparar Stock';
+        btnProcessNuevos.disabled = false;
+        
+        Swal.fire({
+            title: '¡Análisis Completado!',
+            text: `Se encontraron ${finalResultsNuevos.length} inconsistencias.`,
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+        });
+    }, 500);
+});
+
+function analizarDatosNuevos() {
+    finalResultsNuevos = [];
+    
+    let cMlMayor = 0;
+    let cMissingMl = 0;
+    let cWarning = 0;
+    let cOther = 0;
+    
+    // Unir los dos stocks del sistema sumando por SKU
+    let combinedSys = {};
+    for (const sku in dataSys1Nuevos) {
+        combinedSys[sku] = (combinedSys[sku] || 0) + dataSys1Nuevos[sku];
+    }
+    for (const sku in dataSys2Nuevos) {
+        combinedSys[sku] = (combinedSys[sku] || 0) + dataSys2Nuevos[sku];
+    }
+    
+    // Compare ML against System
+    for (const rawSku in dataMlNuevos) {
+        let originalMlStock = dataMlNuevos[rawSku];
+        let skuForSystem = rawSku;
+        let multiplier = 1;
+        
+        const kitMatchPrefix = rawSku.match(/^KITX(\d+)-(.*)/);
+        const kitMatchSuffix = rawSku.match(/^(.*)X(\d+)$/);
+        
+        if (kitMatchPrefix) {
+            multiplier = parseInt(kitMatchPrefix[1], 10);
+            skuForSystem = kitMatchPrefix[2];
+        } else if (kitMatchSuffix) {
+            multiplier = parseInt(kitMatchSuffix[2], 10);
+            skuForSystem = kitMatchSuffix[1];
+        }
+        
+        const mlStockEq = originalMlStock * multiplier;
+        
+        if (combinedSys.hasOwnProperty(skuForSystem)) {
+            const sysStock = combinedSys[skuForSystem];
+            
+            if (mlStockEq !== sysStock) {
+                const diff = mlStockEq - sysStock;
+                let motivo = '';
+                let badgeClass = '';
+                
+                if (mlStockEq > sysStock && mlStockEq < 10 && sysStock < 10) {
+                    motivo = 'Stock ML mayor que Sistema (Riesgo)';
+                    badgeClass = 'bg-danger';
+                    cMlMayor++;
+                } else if (Math.abs(diff) <= 2 && mlStockEq < 8 && sysStock < 8) {
+                    motivo = 'Diferencia de 2 unidades o menos (Advertencia)';
+                    badgeClass = 'bg-warning';
+                    cWarning++;
+                } else if (mlStockEq < 4 && sysStock > 6) {
+                    motivo = 'Actualizar ML (Sistema tiene más stock)';
+                    badgeClass = 'bg-info';
+                    cOther++;
+                } else {
+                    continue;
+                }
+                
+                finalResultsNuevos.push({
+                    SKU: rawSku,
+                    'Stock ML': originalMlStock,
+                    'Multiplier': multiplier,
+                    'Stock Sistema': sysStock,
+                    Diferencia: diff,
+                    Motivo: motivo,
+                    _badgeClass: badgeClass
+                });
+            }
+        }
+    }
+    
+    // Compare System against ML (for missing items)
+    for (const sku in combinedSys) {
+        const sysStock = combinedSys[sku];
+        
+        if (!dataMlNuevos.hasOwnProperty(sku) && sysStock > 0) {
+            cMissingMl++;
+            finalResultsNuevos.push({
+                SKU: sku,
+                'Stock ML': 'No existe',
+                'Stock Sistema': sysStock,
+                Diferencia: -sysStock,
+                Motivo: 'SKU no existe en ML (Publicar/Activar)',
+                _badgeClass: 'bg-success'
+            });
+        }
+    }
+    
+    statsNuevos.mlMayor.textContent = cMlMayor;
+    statsNuevos.missingMl.textContent = cMissingMl;
+    statsNuevos.warning.textContent = cWarning;
+    statsNuevos.other.textContent = cOther;
+}
+
+function renderTableNuevos() {
+    resultsBodyNuevos.innerHTML = '';
+    
+    finalResultsNuevos.sort((a, b) => {
+        return Math.abs(b.Diferencia) - Math.abs(a.Diferencia);
+    });
+    
+    finalResultsNuevos.forEach(item => {
+        const tr = document.createElement('tr');
+        
+        const mlDisplay = item.Multiplier > 1 
+            ? `${item['Stock ML']} <span style="font-size: 0.8rem; color: var(--warning);">(x${item.Multiplier})</span>`
+            : item['Stock ML'];
+            
+        tr.innerHTML = `
+            <td><strong>${item.SKU}</strong></td>
+            <td>${mlDisplay}</td>
+            <td>${item['Stock Sistema']}</td>
+            <td><span class="status-badge ${item._badgeClass}">${item.Motivo}</span></td>
+        `;
+        
+        resultsBodyNuevos.appendChild(tr);
+    });
+}
+
+btnDownloadNuevos.addEventListener('click', () => {
+    const excelData = finalResultsNuevos.map(item => {
+        return {
+            'SKU': item.SKU,
+            'Stock Mercado Libre': item['Stock ML'],
+            'Stock Sistema': item['Stock Sistema'],
+            'Motivo de Corrección': item.Motivo
+        };
+    });
+    
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    const wscols = [
+        {wch: 20},
+        {wch: 20},
+        {wch: 20},
+        {wch: 50}
+    ];
+    ws['!cols'] = wscols;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Correcciones Nuevos");
+    
+    const dateStr = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `Conciliacion_Nuevos_${dateStr}.xlsx`);
+});
+
 // --- NEW RENTABILIDAD LOGIC ---
 const fileGuerrini = document.getElementById('file-guerrini');
 const fileVentas = document.getElementById('file-ventas');
