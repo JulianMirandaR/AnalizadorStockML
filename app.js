@@ -140,14 +140,18 @@ function parseMl(rows) {
         
         let sku = row[4];
         let stock = row[7];
+        let title = row[5];
         
         if (sku !== undefined && sku !== null && sku !== '') {
-            // Remove single quotes, double quotes, and empty spaces
             sku = sku.toString().replace(/^['"]+/, '').replace(/['"]+$/, '').trim().toUpperCase();
+            if (sku === "SKU") continue;
             
-            stock = parseInt(stock, 10);
-            if (!isNaN(stock)) {
-                map[sku] = stock;
+            const stockVal = parseInt(stock, 10);
+            if (!isNaN(stockVal)) {
+                map[sku] = {
+                    stock: stockVal,
+                    title: title ? title.toString().trim() : 'Sin título'
+                };
             }
         }
     }
@@ -169,6 +173,46 @@ function parseSys(rows) {
             stock = parseInt(stock, 10);
             if (!isNaN(stock)) {
                 map[sku] = stock;
+            }
+        }
+    }
+    return map;
+}
+
+function parseSysNuevos(rows) {
+    const map = {};
+    for (let i = 1; i < rows.length; i++) {
+        let row = rows[i];
+        if (!row || row.length === 0) continue;
+        
+        if (row.length === 1 && typeof row[0] === 'string' && row[0].includes(';')) {
+            row = row[0].split(';');
+        } else if (typeof row[0] === 'string' && row[0].includes(';')) {
+            let joinedRow = row.join(';');
+            row = joinedRow.split(';');
+        }
+        
+        if (row.length < 6) continue;
+        
+        let sku = row[1];
+        let desc = row[2];
+        let stockCoronel = parseInt(row[4], 10) || 0;
+        let stockSantiago = parseInt(row[5], 10) || 0;
+        let totalStock = stockCoronel + stockSantiago;
+        
+        if (sku !== undefined && sku !== null && sku !== '') {
+            sku = sku.toString().replace(/^['"]+/, '').replace(/['"]+$/, '').trim().toUpperCase();
+            if (sku === "SKU") continue;
+            
+            const descVal = desc ? desc.toString().trim() : 'Neumático Sistema';
+            
+            if (map.hasOwnProperty(sku)) {
+                map[sku].stock += totalStock;
+            } else {
+                map[sku] = {
+                    stock: totalStock,
+                    descripcion: descVal
+                };
             }
         }
     }
@@ -207,7 +251,8 @@ function analizarDatos() {
     
     // Compare ML against System
     for (const rawSku in dataMl) {
-        let originalMlStock = dataMl[rawSku];
+        let originalMlStock = dataMl[rawSku].stock;
+        let title = dataMl[rawSku].title;
         let skuForSystem = rawSku;
         let multiplier = 1;
         
@@ -252,6 +297,7 @@ function analizarDatos() {
                 
                 finalResults.push({
                     SKU: rawSku,
+                    Title: title,
                     'Stock ML': originalMlStock,
                     'Multiplier': multiplier, // para mostrarlo en la tabla
                     'Stock Sistema': sysStock,
@@ -274,6 +320,7 @@ function analizarDatos() {
             cMissingMl++;
             finalResults.push({
                 SKU: sku,
+                Title: 'No en Mercado Libre',
                 'Stock ML': 'No existe',
                 'Stock Sistema': sysStock,
                 Diferencia: -sysStock,
@@ -307,6 +354,7 @@ function renderTable() {
             
         tr.innerHTML = `
             <td><strong>${item.SKU}</strong></td>
+            <td><span style="font-size: 0.85rem; color: var(--text-secondary);">${item.Title || 'Sin detalle'}</span></td>
             <td>${mlDisplay}</td>
             <td>${item['Stock Sistema']}</td>
             <td><span class="status-badge ${item._badgeClass}">${item.Motivo}</span></td>
@@ -321,6 +369,7 @@ btnDownload.addEventListener('click', () => {
     const excelData = finalResults.map(item => {
         return {
             'SKU': item.SKU,
+            'Título de Publicación': item.Title || 'Sin detalle',
             'Stock Mercado Libre': item['Stock ML'],
             'Stock Sistema': item['Stock Sistema'],
             'Motivo de Corrección': item.Motivo
@@ -332,6 +381,7 @@ btnDownload.addEventListener('click', () => {
     // Ajustar anchos
     const wscols = [
         {wch: 20}, // SKU
+        {wch: 45}, // Título de Publicación
         {wch: 20}, // ML
         {wch: 20}, // Sys
         {wch: 50}  // Motivo
@@ -348,19 +398,16 @@ btnDownload.addEventListener('click', () => {
 
 // --- NUEVOS NEUMATICOS LOGIC ---
 const fileMlNuevos = document.getElementById('file-ml-nuevos');
-const fileSys1Nuevos = document.getElementById('file-sys1-nuevos');
-const fileSys2Nuevos = document.getElementById('file-sys2-nuevos');
+const fileSysNuevos = document.getElementById('file-sys-nuevos');
 const statusMlNuevos = document.getElementById('status-ml-nuevos');
-const statusSys1Nuevos = document.getElementById('status-sys1-nuevos');
-const statusSys2Nuevos = document.getElementById('status-sys2-nuevos');
+const statusSysNuevos = document.getElementById('status-sys-nuevos');
 const btnProcessNuevos = document.getElementById('btn-process-nuevos');
 const resultsPanelNuevos = document.getElementById('results-panel-nuevos');
 const resultsBodyNuevos = document.getElementById('results-body-nuevos');
 const btnDownloadNuevos = document.getElementById('btn-download-nuevos');
 
 const dropZoneMlNuevos = document.getElementById('drop-zone-ml-nuevos');
-const dropZoneSys1Nuevos = document.getElementById('drop-zone-sys1-nuevos');
-const dropZoneSys2Nuevos = document.getElementById('drop-zone-sys2-nuevos');
+const dropZoneSysNuevos = document.getElementById('drop-zone-sys-nuevos');
 
 const statsNuevos = {
     mlMayor: document.getElementById('stat-ml-mayor-nuevos'),
@@ -370,8 +417,7 @@ const statsNuevos = {
 };
 
 let dataMlNuevos = null;
-let dataSys1Nuevos = null;
-let dataSys2Nuevos = null;
+let dataSysNuevos = null;
 let finalResultsNuevos = [];
 
 function setupDropZoneNuevos(dropZone, fileInput, statusElement, type) {
@@ -402,8 +448,7 @@ function setupDropZoneNuevos(dropZone, fileInput, statusElement, type) {
 }
 
 setupDropZoneNuevos(dropZoneMlNuevos, fileMlNuevos, statusMlNuevos, 'ml');
-setupDropZoneNuevos(dropZoneSys1Nuevos, fileSys1Nuevos, statusSys1Nuevos, 'sys1');
-setupDropZoneNuevos(dropZoneSys2Nuevos, fileSys2Nuevos, statusSys2Nuevos, 'sys2');
+setupDropZoneNuevos(dropZoneSysNuevos, fileSysNuevos, statusSysNuevos, 'sys');
 
 function handleFileSelectNuevos(input, statusElement, type) {
     if (input.files.length === 0) return;
@@ -433,15 +478,13 @@ function handleFileSelectNuevos(input, statusElement, type) {
             
             if (type === 'ml') {
                 dataMlNuevos = parseMl(json);
-            } else if (type === 'sys1') {
-                dataSys1Nuevos = parseSys(json);
-            } else if (type === 'sys2') {
-                dataSys2Nuevos = parseSys(json);
+            } else if (type === 'sys') {
+                dataSysNuevos = parseSysNuevos(json);
             }
             
             checkReadyNuevos();
         } catch (error) {
-            Swal.fire('Error', 'No se pudo leer el archivo Excel.', 'error');
+            Swal.fire('Error', 'No se pudo leer el archivo Excel/CSV.', 'error');
             console.error(error);
         }
     };
@@ -449,7 +492,7 @@ function handleFileSelectNuevos(input, statusElement, type) {
 }
 
 function checkReadyNuevos() {
-    if (dataMlNuevos && dataSys1Nuevos && dataSys2Nuevos) {
+    if (dataMlNuevos && dataSysNuevos) {
         btnProcessNuevos.disabled = false;
     }
 }
@@ -484,18 +527,12 @@ function analizarDatosNuevos() {
     let cWarning = 0;
     let cOther = 0;
     
-    // Unir los dos stocks del sistema sumando por SKU
-    let combinedSys = {};
-    for (const sku in dataSys1Nuevos) {
-        combinedSys[sku] = (combinedSys[sku] || 0) + dataSys1Nuevos[sku];
-    }
-    for (const sku in dataSys2Nuevos) {
-        combinedSys[sku] = (combinedSys[sku] || 0) + dataSys2Nuevos[sku];
-    }
+    const combinedSys = dataSysNuevos || {};
     
     // Compare ML against System
     for (const rawSku in dataMlNuevos) {
-        let originalMlStock = dataMlNuevos[rawSku];
+        let originalMlStock = dataMlNuevos[rawSku].stock;
+        let title = dataMlNuevos[rawSku].title;
         let skuForSystem = rawSku;
         let multiplier = 1;
         
@@ -513,7 +550,9 @@ function analizarDatosNuevos() {
         const mlStockEq = originalMlStock * multiplier;
         
         if (combinedSys.hasOwnProperty(skuForSystem)) {
-            const sysStock = combinedSys[skuForSystem];
+            const sysItem = combinedSys[skuForSystem];
+            const sysStock = sysItem.stock;
+            const sysDesc = sysItem.descripcion;
             
             if (mlStockEq !== sysStock) {
                 const diff = mlStockEq - sysStock;
@@ -538,6 +577,7 @@ function analizarDatosNuevos() {
                 
                 finalResultsNuevos.push({
                     SKU: rawSku,
+                    Title: title || sysDesc || 'Sin detalle',
                     'Stock ML': originalMlStock,
                     'Multiplier': multiplier,
                     'Stock Sistema': sysStock,
@@ -551,12 +591,15 @@ function analizarDatosNuevos() {
     
     // Compare System against ML (for missing items)
     for (const sku in combinedSys) {
-        const sysStock = combinedSys[sku];
+        const sysItem = combinedSys[sku];
+        const sysStock = sysItem.stock;
+        const sysDesc = sysItem.descripcion;
         
         if (!dataMlNuevos.hasOwnProperty(sku) && sysStock > 0) {
             cMissingMl++;
             finalResultsNuevos.push({
                 SKU: sku,
+                Title: sysDesc || 'Sin detalle',
                 'Stock ML': 'No existe',
                 'Stock Sistema': sysStock,
                 Diferencia: -sysStock,
@@ -588,6 +631,7 @@ function renderTableNuevos() {
             
         tr.innerHTML = `
             <td><strong>${item.SKU}</strong></td>
+            <td><span style="font-size: 0.85rem; color: var(--text-secondary);">${item.Title || 'Sin detalle'}</span></td>
             <td>${mlDisplay}</td>
             <td>${item['Stock Sistema']}</td>
             <td><span class="status-badge ${item._badgeClass}">${item.Motivo}</span></td>
@@ -601,6 +645,7 @@ btnDownloadNuevos.addEventListener('click', () => {
     const excelData = finalResultsNuevos.map(item => {
         return {
             'SKU': item.SKU,
+            'Título de Publicación': item.Title || 'Sin detalle',
             'Stock Mercado Libre': item['Stock ML'],
             'Stock Sistema': item['Stock Sistema'],
             'Motivo de Corrección': item.Motivo
@@ -610,10 +655,11 @@ btnDownloadNuevos.addEventListener('click', () => {
     const ws = XLSX.utils.json_to_sheet(excelData);
     
     const wscols = [
-        {wch: 20},
-        {wch: 20},
-        {wch: 20},
-        {wch: 50}
+        {wch: 20}, // SKU
+        {wch: 45}, // Título
+        {wch: 20}, // ML
+        {wch: 20}, // Sys
+        {wch: 50}  // Motivo
     ];
     ws['!cols'] = wscols;
 

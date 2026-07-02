@@ -129,6 +129,7 @@
                     <thead>
                         <tr>
                             <th>SKU</th>
+                            <th>Título de la Publicación</th>
                             <th>Stock ML</th>
                             <th>Stock Sistema</th>
                             <th>Motivo / Acción Sugerida</th>
@@ -148,7 +149,7 @@
                     <i class="fa-solid fa-layer-group"></i>
                     <h1>Reportes de Stock - Nuevos Neumáticos</h1>
                 </div>
-                <p>Auditoría entre GNik (2 archivos) y Mercado Libre</p>
+                <p>Auditoría entre Archivo de Stock Total y Mercado Libre</p>
             </header>
 
             <section class="instructions-section">
@@ -159,7 +160,7 @@
                         <li><span class="step-num">2</span> Elige <strong>solo</strong>: <ul><li><i class="fa-solid fa-check"></i> SKU<i class="fa-solid fa-check"></i> Stock en tu deposito</li></ul></li>
                         <li><span class="step-num">3</span> Categoría: <strong>Cubiertas para automotores</strong>.</li>
                         <li><span class="step-num">4</span> Estado: <strong>Activas</strong>.</li>
-                        <li><span class="step-num">5</span> ¡Sube el archivo de ML y los 2 de GNik!</li>
+                        <li><span class="step-num">5</span> ¡Sube el archivo de ML y el archivo consolidado de Stock Total!</li>
                     </ul>
                 </div>
             </section>
@@ -175,24 +176,14 @@
                     <div class="file-status" id="status-ml-nuevos">Sin archivo</div>
                 </div>
 
-                <div class="upload-card" id="drop-zone-sys1-nuevos">
+                <div class="upload-card" id="drop-zone-sys-nuevos">
                     <div class="card-icon">
                         <i class="fa-solid fa-server"></i>
                     </div>
-                    <h3>Archivo GNik 1</h3>
-                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
-                    <input type="file" id="file-sys1-nuevos" accept=".xlsx, .xls, .csv" hidden>
-                    <div class="file-status" id="status-sys1-nuevos">Sin archivo</div>
-                </div>
-
-                <div class="upload-card" id="drop-zone-sys2-nuevos">
-                    <div class="card-icon">
-                        <i class="fa-solid fa-server"></i>
-                    </div>
-                    <h3>Archivo GNik 2</h3>
-                    <p>Arrastra tu Excel aquí o haz clic para subir.</p>
-                    <input type="file" id="file-sys2-nuevos" accept=".xlsx, .xls, .csv" hidden>
-                    <div class="file-status" id="status-sys2-nuevos">Sin archivo</div>
+                    <h3>Archivo de Stock Total</h3>
+                    <p>Arrastra tu Excel o CSV aquí o haz clic para subir.</p>
+                    <input type="file" id="file-sys-nuevos" accept=".xlsx, .xls, .csv" hidden>
+                    <div class="file-status" id="status-sys-nuevos">Sin archivo</div>
                 </div>
             </section>
 
@@ -247,6 +238,7 @@
                         <thead>
                             <tr>
                                 <th>SKU</th>
+                                <th>Título de la Publicación</th>
                                 <th>Stock ML</th>
                                 <th>Stock Sistema (Total)</th>
                                 <th>Motivo / Acción Sugerida</th>
